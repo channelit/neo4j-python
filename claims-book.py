@@ -18,6 +18,11 @@ class NeoExec(object):
             result = session.write_transaction(self._exec, stmt)
             return result
 
+    def exec_yield(self, stmt):
+        with self._driver.session() as session:
+            result = session.write_transaction(self._exec, stmt)
+            return result.records()
+
     @staticmethod
     def _exec(tx, stmt):
         result = tx.run(stmt)
@@ -52,4 +57,21 @@ def extract_quads(pages):
             op_file.write(result_line + '\n')
 
 
-extract_quads(100000)
+def extract_quads_yield():
+    if os.path.exists(quads_file):
+        os.remove(quads_file)
+    op_file = open(quads_file, "a")
+
+    stmt: str = """match (v1:vendors)-[r1:worked_with]-(v2:vendors)-[r2:worked_with]-(v3:vendors)-[r3:worked_with]-(v4:vendors)
+                where r1.claimnumber = r2.claimnumber = r3.claimnumber and id(v1) < id(v2) < id(v3) < id(v4)
+                return v1.id, v2.id, v3.id, v4.id, r1.claimnumber, r2.claimnumber, r3.claimnumber"""
+    results = neo.exec(stmt)
+    for result in results:
+        for record in result:
+            result_line = ""
+            for key in record.keys():
+                result_line += record[key] + ","
+            op_file.write(result_line + '\n')
+
+
+extract_quads(1000000)
